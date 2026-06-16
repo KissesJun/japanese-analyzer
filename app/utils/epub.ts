@@ -7,31 +7,94 @@ export interface EpubSection {
   words: string[];
   /** 该段中文译文 */
   translation: string;
+  /** 该段中的中文引用（<quote> 标签内容），可选 */
+  chineseQuotes?: string[];
+}
+
+export interface EpubMeta {
+  generatedAt: string;
+  sectionCount: number;
+  totalChars: number;
+}
+
+/** 一篇文章的完整数据 */
+export interface ArticleGroup {
+  /** 文章标题，如 "（2024年7月N1）"；无标题时为空字符串 */
+  title: string;
+  sections: EpubSection[];
+  meta: EpubMeta;
 }
 
 export interface EpubContent {
-  sections: EpubSection[];
+  articles: ArticleGroup[];
 }
 
 /**
  * 构建 Epub 内 XHTML 内容。
- * 每段：序号标题 + 词条列表 + 译文注释，无框线极简样式。
+ * 多文章结构：每篇文章独立 H1 + 段落 + 回顾区。
  */
-function buildXhtml(sections: EpubSection[]): string {
-  const sectionsHtml = sections
-    .map(
-      (sec, i) => {
-        const wordItems = sec.words
-          .map((w) => `    <p class="word">${escapeXml(w)}</p>`)
-          .join('\n');
+function buildXhtml(content: EpubContent): string {
+  const { articles } = content;
 
-        return `  <h1>${i + 1}. ${escapeXml(sec.text)}</h1>
+  const articlesHtml = articles
+    .map((article, ai) => {
+      // 文章标题 H1（非首篇加分页符）
+      const pageBreakClass = ai > 0 ? ' article-page-break' : '';
+      const titleHtml = article.title
+        ? `  <h1 class="context-title${pageBreakClass}">${escapeXml(article.title)}</h1>\n`
+        : '';
+
+      // 扉页 colophon
+      const metaHtml = `  <div class="colophon">
+    <p>生成日期：${escapeXml(article.meta.generatedAt)}</p>
+    <p>段落数：${article.meta.sectionCount} 句</p>
+    <p>总字数：${article.meta.totalChars} 字</p>
+  </div>\n`;
+
+      // 段落
+      const sectionsHtml = article.sections
+        .map((sec, si) => {
+          const wordItems = sec.words
+            .map((w) => `    <p class="word">${escapeXml(w)}</p>`)
+            .join('\n');
+
+          const longTitleClass = sec.text.length > 80 ? ' long-title' : '';
+
+          const quoteBlocks = (sec.chineseQuotes ?? [])
+            .map((q) => `  <blockquote class="chinese-quote">${escapeXml(q)}</blockquote>`)
+            .join('\n');
+
+          const translationBlock = sec.translation
+            ? `  <blockquote>${escapeXml(sec.translation)}</blockquote>`
+            : '';
+
+          const secId = `s-${ai}-${si}`;
+          const reviewId = `review-${ai}`;
+
+          return `  <h2 id="${secId}" class="section-title${longTitleClass}">${escapeXml(sec.text)} <a href="#${reviewId}" class="to-review">&gt;&gt;</a></h2>
 
 ${wordItems}
+${quoteBlocks ? quoteBlocks + '\n' : ''}${translationBlock}`;
+        })
+        .join('\n\n');
 
-  <blockquote>${escapeXml(sec.translation)}</blockquote>`;
-      }
-    )
+      // 回顾区
+      const reviewId = `review-${ai}`;
+      const reviewHtml = article.sections
+        .map(
+          (sec, si) =>
+            `    <p class="review-line"><a href="#s-${ai}-${si}">${escapeXml(sec.text)}</a></p>`
+        )
+        .join('\n');
+
+      return `${titleHtml}${metaHtml}
+${sectionsHtml}
+
+  <div id="${reviewId}" class="full-original">
+    <h3>完整原文回顾</h3>
+${reviewHtml}
+  </div>`;
+    })
     .join('\n\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -46,7 +109,29 @@ ${wordItems}
       padding: 1.2em 1em;
       color: #1f1b2e;
     }
-    h1 {
+    /* ---- 文章标题 H1 ---- */
+    h1.context-title {
+      font-size: 1.4em;
+      font-weight: 700;
+      color: #1f1b2e;
+      margin: 0 0 0.2em;
+      text-align: left;
+    }
+    h1.article-page-break {
+      page-break-before: always;
+    }
+    /* ---- 扉页 ---- */
+    .colophon {
+      text-align: center;
+      font-size: 1em;
+      color: #4b465c;
+      margin-bottom: 0.8em;
+      page-break-after: always;
+    }
+    .colophon p {
+      margin: 0.2em 0;
+    }
+    h2.section-title {
       font-size: 1.15em;
       font-weight: 600;
       margin: 1.4em 0 0.6em;
@@ -54,15 +139,24 @@ ${wordItems}
       border-bottom: 1px solid #e8e5f0;
       padding-bottom: 0.3em;
     }
-    h1:first-of-type {
+    h2.section-title:first-of-type {
       margin-top: 0;
+    }
+    h2.long-title {
+      page-break-before: always;
+    }
+    a.to-review {
+      font-size: 0.7em;
+      color: #a098b8;
+      text-decoration: none;
+      font-weight: 400;
     }
     p.word {
       font-size: 1em;
       margin: 0;
-      padding: 0.1em 0 0.1em 0.3em;
+      padding: 0.15em 0 0.15em 0.3em;
       color: #1f1b2e;
-      line-height: 1.4;
+      line-height: 1.35;
     }
     blockquote {
       margin: 0.8em 0 0 0;
@@ -72,11 +166,39 @@ ${wordItems}
       color: #4b465c;
       font-style: normal;
     }
+    blockquote.chinese-quote {
+      border-left: 3px solid #a0b8e8;
+      color: #3b5078;
+      white-space: pre-line;
+    }
+    /* ---- 文末回顾区 ---- */
+    .full-original {
+      margin-top: 2.5em;
+      padding-top: 1em;
+      border-top: 2px solid #e8e5f0;
+    }
+    .full-original h3 {
+      font-size: 1.05em;
+      font-weight: 600;
+      color: #1f1b2e;
+      margin-bottom: 0.8em;
+    }
+    .review-line {
+      font-size: 1em;
+      line-height: 1.8;
+      margin: 0;
+      color: #1f1b2e;
+    }
+    .review-line a {
+      color: #1f1b2e;
+      text-decoration: none;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
 
-${sectionsHtml}
+${articlesHtml}
 
 </body>
 </html>`;
@@ -131,7 +253,7 @@ export async function generateEpubBlob(content: EpubContent): Promise<Blob> {
   );
 
   // 4. OEBPS/content.xhtml
-  const xhtml = buildXhtml(content.sections);
+  const xhtml = buildXhtml(content);
   zip.file('OEBPS/content.xhtml', xhtml);
 
   const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/epub+zip' });

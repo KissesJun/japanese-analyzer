@@ -26,6 +26,25 @@ export interface EpubSection {
   text: string;
   words: string[];
   translation: string;
+  /** 该段中的中文引用（<quote> 标签内容），可选 */
+  chineseQuotes?: string[];
+}
+
+export interface EpubMeta {
+  generatedAt: string;
+  sectionCount: number;
+  totalChars: number;
+}
+
+/** 一篇文章的完整数据 */
+export interface ArticleGroup {
+  title: string;
+  sections: EpubSection[];
+  meta: EpubMeta;
+}
+
+export interface EpubGenerateResult {
+  articles: ArticleGroup[];
 }
 
 export type AIProvider = 'gemini' | 'deepseek';
@@ -714,7 +733,7 @@ export async function generateEpubContent(
   sentence: string,
   userApiKey?: string,
   provider: AIProvider = DEFAULT_AI_PROVIDER
-): Promise<EpubSection[]> {
+): Promise<EpubGenerateResult> {
   if (!sentence) {
     throw new Error('缺少句子');
   }
@@ -747,38 +766,42 @@ export async function generateEpubContent(
         if (jsonMatch && jsonMatch[1]) {
           responseContent = jsonMatch[1];
         }
-        let parsed: { sections?: EpubSection[] } | null = null;
+        let parsed: { articles?: Array<{ title: string; sections: EpubSection[] }> } | null = null;
         try {
           parsed = JSON.parse(responseContent);
         } catch {
-          // JSON 可能被截断（长文本常见），尝试修复
+          // JSON 截断修复...
           let repaired = responseContent.trimEnd();
-          // 去掉最后不完整的字段（从最后一个未闭合的 " 或 , 处截断）
           const lastComplete = repaired.lastIndexOf('"}');
           if (lastComplete > 0) {
             repaired = repaired.slice(0, lastComplete + 2) + '\n]';
-            // 确保 sections 数组闭合
             if (!repaired.trimEnd().endsWith(']}')) {
               repaired = repaired.trimEnd();
               if (!repaired.endsWith(']')) repaired += '\n]';
               if (!repaired.endsWith('}')) repaired += '\n}';
             }
           }
-          try {
-            parsed = JSON.parse(repaired);
-          } catch {
-            // 最终回退：尝试找最后一个完整对象
+          try { parsed = JSON.parse(repaired); } catch {
             const lastObj = repaired.lastIndexOf('},');
             if (lastObj > 0) {
-              const fallback = repaired.slice(0, lastObj + 1) + '\n]\n}';
-              parsed = JSON.parse(fallback);
+              parsed = JSON.parse(repaired.slice(0, lastObj + 1) + '\n]\n}');
             }
           }
         }
-        if (parsed?.sections && Array.isArray(parsed.sections) && parsed.sections.length > 0) {
-          return parsed.sections as EpubSection[];
+        if (parsed?.articles && Array.isArray(parsed.articles) && parsed.articles.length > 0) {
+          return {
+            articles: parsed.articles.map((a) => ({
+              title: a.title || '',
+              sections: a.sections || [],
+              meta: {
+                generatedAt: new Date().toISOString().slice(0, 10),
+                sectionCount: a.sections?.length || 0,
+                totalChars: (a.sections || []).reduce((sum, s) => sum + s.text.length, 0),
+              },
+            })),
+          };
         }
-        throw new Error('返回数据缺少 sections 字段或 JSON 无法修复');
+        throw new Error('返回数据缺少 articles 字段或 JSON 无法修复');
       } catch (e) {
         console.error('Failed to parse JSON from epub response:', e, responseContent);
         throw new Error('Epub 生成结果 JSON 格式错误');

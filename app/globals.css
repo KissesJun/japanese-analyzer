@@ -926,14 +926,65 @@ input, textarea {
   line-height: 1.8;
 }
 
-/* 原文标题行 */
-.epub-preview-content .epub-original {
+/* context title — h1 大标题 */
+.epub-preview-content .epub-context-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 6px;
+  text-align: left;
+}
+.epub-preview-content .epub-article-break {
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 3px double var(--line);
+}
+
+/* 扉页 colophon — 居中正常字号 */
+.epub-preview-content .epub-colophon {
+  text-align: center;
+  font-size: 14px;
+  color: var(--ink-2);
   margin-bottom: 16px;
+}
+.epub-preview-content .epub-colophon p {
+  margin: 3px 0;
+}
+
+/* 原文标题行 — h2 样式，带底部分割线 */
+.epub-preview-content .epub-section-title {
+  margin-bottom: 16px;
+  margin-top: 1.4em;
   font-family: "Noto Sans JP", sans-serif;
   font-size: 16px;
   font-weight: 600;
   line-height: 1.7;
   color: var(--ink);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.3em;
+}
+.epub-preview-content .epub-section-title:first-of-type {
+  margin-top: 0;
+}
+
+/* 标题后的 >> 跳转箭头 */
+.epub-preview-content .epub-to-review {
+  font-size: 0.7em;
+  color: #a098b8;
+  text-decoration: none;
+  font-weight: 400;
+}
+
+/* 长标题分页提示（预览用） */
+.epub-page-break-hint {
+  text-align: center;
+  color: var(--ink-3);
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  border-top: 2px dashed var(--line);
+  margin-top: 20px;
+  padding-top: 10px;
+  margin-bottom: 6px;
 }
 
 /* 逐词解析列表 —— 紧凑行距 */
@@ -944,9 +995,9 @@ input, textarea {
 }
 
 .epub-preview-content .epub-word-list li {
-  margin-bottom: 2px;
+  margin: 0;
   padding-left: 6px;
-  line-height: 1.5;
+  line-height: 1.35;
   color: var(--ink-2);
 }
 
@@ -959,6 +1010,42 @@ input, textarea {
   line-height: 1.7;
   color: var(--ink-2);
   font-style: normal;
+}
+
+/* 中文引用样式 — 蓝色竖线 */
+.epub-preview-content .epub-chinese-quote {
+  margin-top: 10px;
+  padding: 6px 0 6px 12px;
+  border-left: 3px solid #a0b8e8;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #3b5078;
+  font-style: normal;
+  white-space: pre-line;
+}
+
+/* 完整原文回顾区 */
+.epub-preview-content .epub-full-original {
+  margin-top: 2.5em;
+  padding-top: 1em;
+  border-top: 2px solid var(--line);
+}
+.epub-preview-content .epub-full-original h3 {
+  font-size: 1.05em;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 0.8em;
+}
+.epub-preview-content .epub-review-line {
+  font-size: 1em;
+  line-height: 1.8;
+  margin: 0;
+  color: var(--ink);
+}
+.epub-preview-content .epub-review-line a {
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 600;
 }
 
 /* 段落分隔 */

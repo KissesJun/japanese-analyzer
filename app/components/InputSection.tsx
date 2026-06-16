@@ -291,6 +291,30 @@ export default function InputSection({
     event.target.value = '';
   };
 
+  // TXT 文件上传处理
+  const handleTxtUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      if (text) {
+        const lines = text.split(/\n/);
+        const firstLine = lines[0]?.trim() || '';
+        const totalChars = text.length;
+        const preview = firstLine.length > 30
+          ? firstLine.slice(0, 30) + '…'
+          : firstLine;
+        setInputText(text);
+        setUploadStatus(`已加载：${preview}（共 ${totalChars} 字符）`);
+        setUploadStatusClass('mt-2 text-sm');
+      }
+    };
+    reader.readAsText(file, 'UTF-8');
+    event.target.value = '';
+  };
+
   // 处理粘贴事件
   const handlePaste = async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = event.clipboardData?.items;
@@ -413,6 +437,20 @@ export default function InputSection({
         <div className="mt-3.5 flex items-center">
           {/* 左侧工具按钮区域 */}
           <div className="flex items-center gap-2.5" style={{ color: 'var(--ink-3)' }}>
+            {/* 上传 TXT 按钮 */}
+            <button
+              className="nd-icon-btn"
+              onClick={() => document.getElementById('txtUploadInput')?.click()}
+              title="上传 TXT 文本文件"
+            >
+              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+              </svg>
+            </button>
+
             {/* 上传图片按钮 */}
             <button
               id="uploadImageButton"
@@ -569,6 +607,16 @@ export default function InputSection({
 
           <div className="flex-1" />
 
+          {/* 字数统计 */}
+          {inputText.trim() !== '' && (
+            <span
+              className="mr-3 text-xs select-none"
+              style={{ color: 'var(--ink-3)', whiteSpace: 'nowrap' }}
+            >
+              {inputText.length} 字
+            </span>
+          )}
+
           {/* 清空按钮 */}
           {inputText.trim() !== '' && (
             <button
@@ -611,6 +659,13 @@ export default function InputSection({
         </div>
 
         {/* 隐藏的文件输入 */}
+        <input
+          type="file"
+          id="txtUploadInput"
+          accept=".txt,text/plain"
+          className="hidden"
+          onChange={handleTxtUpload}
+        />
         <input
           type="file"
           id="imageUploadInput"
